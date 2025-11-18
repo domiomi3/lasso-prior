@@ -1,0 +1,57 @@
+data_generation:
+  add_timestamp: true
+  exp_name: lasso_prior
+  output_dir: experiments/data/generated
+feature_adding:
+  add_features_max: 1500
+  add_features_min: 200
+  max_noise: 1.0
+  max_sparsity: 0.05
+  min_noise: 0.0
+  min_sparsity: 0.0
+  warmup_steps: 0
+feature_selection:
+  C: 0.5
+  alpha: 1.0
+  l1_ratio: 0.7
+  max_iter: 5000
+  method: lasso
+  n_bootstrap: 10
+  normalize: true
+  random_state: 44
+  threshold: 0.5
+  tolerance: 0.01
+  top_k: 10
+prior:
+  batch_size: 16
+  device: cpu
+  max_features: 250
+  max_num_classes: 10
+  min_features: 50
+  num_datapoints_max: 300
+  num_datapoints_min: 40
+  num_steps: 100
+training:
+  checkpoint_dir: checkpoints
+  data:
+    data_dir: data/generated/lasso_prior_20251114_192845
+    load_to_memory: true
+    max_sparsity_batch: 0.85
+    max_sparsity_dataset: 0.95
+    min_valid_datasets: 1
+    train_test_split: 0.8
+  device: null
+  log_interval: 100
+  model:
+    embedding_layer: 4
+    model_name: TabPFN-Wide-8k
+    model_path: ./models
+  num_steps: 10000
+  optimizer:
+    gradient_clip: 1.0
+    learning_rate: 0.0001
+    scheduler: cosine
+    weight_decay: 0.0001
+  resume_from: null
+  save_interval: 500
+  seed: 42

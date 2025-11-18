@@ -1,0 +1,68 @@
+# Prior generation settings
+prior:
+  num_steps: 100 #10000
+  batch_size: 16 #16
+  device: "cpu"
+  min_features: 50
+  max_features: 250 #250
+  max_num_classes: 10
+  num_datapoints_min: 40
+  num_datapoints_max: 300
+
+# Feature adding (TabPFN-wide augmentation)
+feature_adding:
+  add_features_min: 200
+  add_features_max: 1500
+  warmup_steps: 0
+  min_sparsity: 0.0
+  max_sparsity: 0.05
+  min_noise: 0.0
+  max_noise: 1.0
+
+# Feature selection (Lasso/ElasticNet)
+feature_selection:
+  method: "lasso"
+  n_bootstrap: 10
+  alpha: 1.0
+  max_iter: 5000
+  l1_ratio: 0.7
+  top_k: 10
+  normalize: true
+  random_state: 44
+  tolerance: 0.01
+  C_min: 0.001
+  C_max: 0.5
+
+# Data generation
+data_generation:
+  output_dir: "experiments/data/generated"
+  exp_name: "lasso_prior"
+  add_timestamp: True
+
+training:
+  data:
+    data_dir: "experiments/data/generated/lasso_prior_20251117_092226"
+    max_sparsity_dataset: 0.95
+    max_sparsity_batch: 0.85
+    load_to_memory: true
+    min_valid_datasets: 1
+    train_test_split: 0.8
+  
+  model:
+    model_name: "TabPFN-Wide-8k"
+    model_path: "./models"
+    embedding_layer: 4
+  
+  optimizer:
+    learning_rate: 0.0001
+    weight_decay: 0.0001
+    gradient_clip: 1.0
+    scheduler: "cosine"
+  
+  num_steps: 10000
+  seed: 42
+  checkpoint_dir: "checkpoints"
+  save_interval: 500
+  log_interval: 100
+  resume_from: null
+  device: null  # Auto-detect if null
