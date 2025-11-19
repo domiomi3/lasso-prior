@@ -1,0 +1,34 @@
+prior:
+  num_steps: 4000
+  batch_size: 4 
+  device: "cpu"
+  min_features: 50
+  max_features: 250 
+  max_num_classes: 10
+  num_datapoints_min: 40
+  num_datapoints_max: 300
+
+feature_adding:
+  add_features_min: 200
+  add_features_max: 1500
+  warmup_steps: 0
+  min_sparsity: 0.0
+  max_sparsity: 0.05
+  min_noise: 0.0
+  max_noise: 1.0
+
+feature_selection:
+  method: "lasso"
+  n_bootstrap: 20
+  max_iter: 5000
+  normalize: true
+  random_state: 66
+  tolerance: 0.01
+  C_min: 0.1
+  C_max: 0.4
+  max_sparsity: 0.95  
+
+data_generation:
+  output_dir: "experiments/data/generated"
+  exp_name: "training_data_10000"
+  add_timestamp: True

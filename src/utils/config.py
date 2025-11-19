@@ -22,7 +22,7 @@ class FeatureSelectionConfig:
 @dataclass
 class TabICLPriorDataLoaderConfig:
     num_steps: int = 1
-    batch_size: int = 16
+    batch_size: int = 4
     device: str = "cpu"
     min_features: int = 50
     max_features: int = 250
@@ -78,20 +78,31 @@ class OptimizerConfig:
     gradient_clip: float = 1.0
     scheduler: str = "cosine"
 
+@dataclass
+class WandBConfig:
+    use_wandb: True
+    project: str = "test"
+    entity: str = None
+    run_name: str = None
 
 @dataclass
 class TrainingConfig:
     data_loader: DataLoadingConfig
     model: ModelConfig
     optimizer: OptimizerConfig
+    wandb: WandBConfig
 
     num_steps: int = 10000
+    batch_size: int = 4
     seed: int = 42
     checkpoint_dir: str = "checkpoints"
+    val_data_dir: str = "experiments/data/val_data"
     save_interval: int = 500
     log_interval: int = 100
+    val_interval: int = 100
     resume_from: Optional[str] = None
     device: Optional[str] = None
+    grad_accum_steps: int = 4 # effective size is that *batch_size
 
 
 @dataclass
@@ -110,19 +121,20 @@ class Config:
             config_dict = yaml.safe_load(f)
         
         training_dict = config_dict.get('training', {})
-        data_config = DataLoadingConfig(**training_dict.pop('data', {}))
+        data_loader_config = DataLoadingConfig(**training_dict.pop('data_loader', {}))
         model_config = ModelConfig(**training_dict.pop('model', {}))
         optimizer_config = OptimizerConfig(**training_dict.pop('optimizer', {}))
-
+        wandb_config = WandBConfig(**training_dict.pop('wandb', {}))
         return cls(
             prior=TabICLPriorDataLoaderConfig(**config_dict['prior']),
             feature_adding=FeatureAddingConfig(**config_dict['feature_adding']),
             feature_selection=FeatureSelectionConfig(**config_dict['feature_selection']),
             data_generation=DataGenerationConfig(**config_dict['data_generation']),
             training=TrainingConfig(
-                data_loader=data_config,
+                data_loader=data_loader_config,
                 model=model_config,
                 optimizer=optimizer_config,
+                wandb=wandb_config,
                 **training_dict  
             )
         )
@@ -152,6 +164,6 @@ if __name__ == "__main__":
     print(f"Training steps: {config.training.num_steps}")
     print(f"Model: {config.training.model.model_name}")
     print(f"Learning rate: {config.training.optimizer.learning_rate}")
-    print(f"Data dir: {config.training.data.data_dir}")
+    print(f"Data dir: {config.training.data_loader.data_dir}")
     
     config.to_yaml("configs/saved_config.yaml")

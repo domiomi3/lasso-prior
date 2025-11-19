@@ -4,6 +4,7 @@ Generate and save datasets generates from TabPFN-wide priors extended by Lasso c
 import pandas as pd
 import h5py
 import numpy as np
+import argparse
 
 from pathlib import Path
 from tqdm import tqdm
@@ -13,8 +14,9 @@ from tabularpriors.dataloader import TabICLPriorDataLoader
 
 from src.data.lasso_prior import generate_lasso_batches
 from src.utils.config import load_config
-from src.utils.misc import generate_exp_name_from_config
+from src.utils.misc import generate_exp_name_from_config, setup_logger
 
+logger = setup_logger(__name__)
 
 def save_batch(X, y, lasso_coeffs, batch_id, output_dir):
     """
@@ -87,20 +89,20 @@ def generate_datasets(config, config_path):
     
     num_batches = config.prior.num_steps
 
-    print("="*60)
-    print(f"Experiment: {exp_dir}")
-    print("="*60)
-    print(f"Batches: {num_batches} ")
-    print(f"Batch size: {config.prior.batch_size}")
-    print(f"Samples: {config.prior.num_datapoints_min}-{config.prior.num_datapoints_max}")
-    print(f"Base features: {config.prior.min_features}-{config.prior.max_features}")
-    print(f"Extra features added: {config.feature_adding.add_features_min}-{config.feature_adding.add_features_max}")
-    print(f"Classes: 2-{config.prior.max_num_classes}")   
-    print(f"Lasso bootstrap iterations: {config.feature_selection.n_bootstrap}")
-    print("="*60)
-    print(f"Config file: {config_path}")
-    print(f"Output dir: {output_dir}")
-    print("="*60)
+    logger.info("="*60)
+    logger.info(f"Experiment: {exp_dir}")
+    logger.info("="*60)
+    logger.info(f"Batches: {num_batches} ")
+    logger.info(f"Batch size: {config.prior.batch_size}")
+    logger.info(f"Samples: {config.prior.num_datapoints_min}-{config.prior.num_datapoints_max}")
+    logger.info(f"Base features: {config.prior.min_features}-{config.prior.max_features}")
+    logger.info(f"Extra features added: {config.feature_adding.add_features_min}-{config.feature_adding.add_features_max}")
+    logger.info(f"Classes: 2-{config.prior.max_num_classes}")   
+    logger.info(f"Lasso bootstrap iterations: {config.feature_selection.n_bootstrap}")
+    logger.info("="*60)
+    logger.info(f"Config file: {config_path}")
+    logger.info(f"Output dir: {output_dir}")
+    logger.info("="*60)
 
     prior_loader = TabICLPriorDataLoader(**config.prior.__dict__)
     
@@ -138,35 +140,38 @@ def generate_datasets(config, config_path):
             metadata_records.append(record)
         
         sparsity_batch = [i["sparsity"] for i in metadata]
-        print(f"Avg batch sparsity: {sum(sparsity_batch)/len(sparsity_batch)*100:.2f} %")  
+        logger.info(f"Avg batch sparsity: {sum(sparsity_batch)/len(sparsity_batch)*100:.2f} %")  
 
         if (batch_id + 1) % 10 == 0: # incremental saving
             df = pd.DataFrame(metadata_records)
             df.to_csv(metadata_path, index=False)
-            print(f"Saved metadata ({len(metadata_records)} datasets)")
+            logger.info(f"Saved metadata ({len(metadata_records)} datasets)")
 
     # save data metadata 
     df = pd.DataFrame(metadata_records)
     df.to_csv(metadata_path, index=False)
-    print(f"\n{'='*60}")
-    print(f"Saved metadata to {metadata_path}")
-    print(f"Saved {num_batches} batches to {output_dir}")
+    logger.info(f"\n{'='*60}")
+    logger.info(f"Saved metadata to {metadata_path}")
+    logger.info(f"Saved {num_batches} batches to {output_dir}")
     
     # save experiment metadata 
     try:
         config.to_yaml(str(output_dir / "config.yaml"))
-        print(f"Saved config to {output_dir / 'config.yaml'}")
+        logger.info(f"Saved config to {output_dir / 'config.yaml'}")
     except Exception as e:
-        print(f"Warning: Could not save config.yaml: {e}")
+        logger.info(f"Warning: Could not save config.yaml: {e}")
     
-    print(f"\n{'='*60}")
-    print(f"Generation complete")
-    print(f"Location: {output_dir}")
-    print(f"{'='*60}")
+    logger.info(f"\n{'='*60}")
+    logger.info(f"Generation complete")
+    logger.info(f"Location: {output_dir}")
+    logger.info(f"{'='*60}")
 
 
 if __name__ == "__main__":
-    config_path = "configs/test.yaml"
-    config = load_config(config_path)
+    parser = argparse.ArgumentParser(description='Short sample app')
+    parser.add_argument('--config_path', type=str, default="configs/default.yaml")
+    args = parser.parse_args()
+
+    config = load_config(args.config_path)
     
-    generate_datasets(config, config_path)
+    generate_datasets(config, args.config_path)

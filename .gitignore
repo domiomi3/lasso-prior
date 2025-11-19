@@ -14,3 +14,5 @@ external/
 external/tabularpriors/
 inspect.ipynb
 .gitmodules
+wandb/
+checkpoints/

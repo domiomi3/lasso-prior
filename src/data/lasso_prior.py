@@ -5,19 +5,20 @@ based on the averaged coefficients.
 """
 import numpy as np
 import torch
+import argparse
 
 from torch import nn
 from sklearn.linear_model import LogisticRegression, ElasticNet
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import StratifiedShuffleSplit
 
 from tabicl.train.run import Timer
 from tabularpriors.dataloader import TabICLPriorDataLoader
 
 from src.utils.config import load_config
+from src.utils.misc import setup_logger
 
-
-from sklearn.model_selection import StratifiedShuffleSplit
-
+logger = setup_logger(__name__)
 
 def get_lasso_coefficients(X, y, config, verbose=True):
     """
@@ -48,7 +49,7 @@ def get_lasso_coefficients(X, y, config, verbose=True):
     C_sampled = np.exp(np.random.uniform(np.log(C_min), np.log(C_max)))
     
     if verbose:
-        print(f"Using C={C_sampled:.4f}")
+        logger.info(f"Using C={C_sampled:.4f}")
     
     # check if enough samples per class for stratification
     class_vals, class_counts = np.unique(y, return_counts=True)
@@ -57,7 +58,7 @@ def get_lasso_coefficients(X, y, config, verbose=True):
     min_class_count = class_counts.min()
     
     if min_class_count < 2:
-        print(f"Warning: Some classes have fewer than 2 samples. Skipping this dataset.")
+        logger.info(f"Warning: Some classes have fewer than 2 samples. Skipping this dataset.")
         return coeff_importance # zeros
     
     #subsets contain all classes
@@ -97,13 +98,13 @@ def get_lasso_coefficients(X, y, config, verbose=True):
             successful_fits += 1
     
     if successful_fits == 0:
-        print("Warning: No successful fits for this dataset.")
+        logger.info("Warning: No successful fits for this dataset.")
         return coeff_importance # zeros
     
     coeff_importance_avg = coeff_importance / successful_fits
     sparsity = np.sum(coeff_importance_avg == 0) / len(coeff_importance_avg)
     if verbose:
-        print(f"Dataset sparsity: {sparsity*100:.2f}%")
+        logger.info(f"Dataset sparsity: {sparsity*100:.2f}%")
     
     return coeff_importance_avg, {"sparsity": sparsity, "C": C_sampled}
 
@@ -177,14 +178,14 @@ def generate_lasso_batches(prior_dataloader, feature_adding_config, feature_sele
     with Timer() as timer:
         prior_loader = iter(prior_dataloader)
     prior_time = timer.elapsed
-    print(f"Loading prior loader: {prior_time:.2f}s")
+    logger.info(f"Loading prior loader: {prior_time:.2f}s")
 
 
     for i in range(n_batches): #must be equal to num_steps from the prior config
         current_step = i
-        print("="*60)
-        print(f"Batch {i+1}")
-        print("="*60)
+        logger.info("="*60)
+        logger.info(f"Batch {i+1}")
+        logger.info("="*60)
         batch = next(prior_loader)
         X, y = batch['x'], batch['y']
         X = torch.Tensor(X) # B, N, M
@@ -194,7 +195,7 @@ def generate_lasso_batches(prior_dataloader, feature_adding_config, feature_sele
         if feature_adding_config.add_features_max > 0: #that's how we can control expanding feature dim
             new_features, sparsity, noise = get_feature_adding_parameters(feature_adding_config, current_step)
             X = get_new_features(X, new_features, sparsity=sparsity, noise_std=noise)
-        print(f"X shape: {X.shape}, y shape: {y.shape}, classes: {len(np.unique(y))}")
+        logger.info(f"X shape: {X.shape}, y shape: {y.shape}, classes: {len(np.unique(y))}")
   
         X = X.numpy()
         y = y.numpy()
@@ -215,7 +216,7 @@ def generate_lasso_batches(prior_dataloader, feature_adding_config, feature_sele
                 # filter out datasets with very high sparsity (no signal to learn)
                 sparsity = metadata['sparsity']
                 if sparsity > feature_selection_config.max_sparsity:
-                    print(f"Dataset {b} removed: sparsity={sparsity*100:.2f}%)")
+                    logger.info(f"Dataset {b} removed: sparsity={sparsity*100:.2f}%)")
                     continue
                                 
                 valid_X.append(X_dataset)
@@ -226,7 +227,7 @@ def generate_lasso_batches(prior_dataloader, feature_adding_config, feature_sele
         min_required = max(1, batch_size // 2)  # At least 50% of original batch_size
         
         if len(valid_X) < min_required:
-            print(f"Batch {i} skipped - only {len(valid_X)}/{batch_size} valid datasets")
+            logger.info(f"Batch {i} skipped - only {len(valid_X)}/{batch_size} valid datasets")
             continue
         
         X_valid = np.stack(valid_X)
@@ -237,8 +238,12 @@ def generate_lasso_batches(prior_dataloader, feature_adding_config, feature_sele
 
 
 if __name__=="__main__":
+    parser = argparse.ArgumentParser(description='Short sample app')
+    parser.add_argument('--config_path', type=str, default="configs/default.yaml")
+    args = parser.parse_args()
+
     # quick check 
-    config = load_config("configs/test.yaml")
+    config = load_config(args.config_path)
     prior_loader = TabICLPriorDataLoader(**config.prior.__dict__)
 
     for i, (X_batch, y_batch, lasso_coeffs_batch, metadata_batch) in enumerate(
@@ -250,4 +255,4 @@ if __name__=="__main__":
         )
     ):
         sparsity_batch = [i["sparsity"] for i in metadata_batch]
-        print(f"Avg batch sparsity: {sum(sparsity_batch)/len(sparsity_batch)*100:.2f} %")  
+        logger.info(f"Avg batch sparsity: {sum(sparsity_batch)/len(sparsity_batch)*100:.2f} %")  

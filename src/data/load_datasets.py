@@ -1,12 +1,15 @@
 import h5py
 import numpy as np
 import torch
+import argparse 
 
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 
 from src.utils.config import load_config
+from src.utils.misc import setup_logger
 
+logger = setup_logger(__name__)
 
 class LassoPriorDataset(Dataset):
     def __init__(
@@ -46,21 +49,21 @@ class LassoPriorDataset(Dataset):
         self.batch_files = sorted(list(self.data_dir.glob("batch_*.h5")))
         
         if len(self.batch_files) == 0:
-            raise ValueError(f"No batch files found in {self.data_dir}")
+            raise ValueError(f"[DATA] No batch files found in {self.data_dir}")
         
         if verbose:
-            print(f"Found {len(self.batch_files)} batch files in {self.data_dir}")
+            logger.info(f"[DATA] Found {len(self.batch_files)} batch files in {self.data_dir}")
         
         if load_to_memory: #load to RAM
             if verbose:
-                print("Loading batches into RAM...")
+                logger.info("[DATA] Loading batches into RAM...")
             self._load_all_to_memory()
             if verbose:
                 size_mb = sum(
                     d['X'].nbytes + d['y'].nbytes + d['lasso_coeffs'].nbytes 
                     for d in self.memory_cache
                 ) / 1024 / 1024
-                print(f"Loaded {len(self.memory_cache)} valid batches ({size_mb:.1f} MB)")
+                logger.info(f"[DATA] Loaded {len(self.memory_cache)} valid batches ({size_mb:.1f} MB)")
         else:
             self.memory_cache = None
     
@@ -212,23 +215,27 @@ def create_dataloader(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Short sample app')
+    parser.add_argument('--config_path', type=str, default="configs/default.yaml")
+    args = parser.parse_args()
+
     # quick check
-    config = load_config(config_path="configs/test.yaml")
+    config = load_config(args.config_path)
     config.training.data_loader.__dict__.pop("train_test_split")
 
     lasso_prior_dataloader = create_dataloader(**config.training.data_loader.__dict__)
-    print(f"\nDataLoader ready: {len(lasso_prior_dataloader)} batches\n")
+    logger.info(f"DataLoader ready: {len(lasso_prior_dataloader)} batches\n")
     
     for i, batch in enumerate(lasso_prior_dataloader):      
         X = batch['X']
         y = batch['y']
         lasso_coeffs = batch['lasso_coeffs']
         
-        print(f"Batch {i}:")
-        print(f"  X: {X.shape}")
-        print(f"  y: {y.shape}")
-        print(f"  lasso_coeffs: {lasso_coeffs.shape}")
-        print(f"  Coeff mean: [{lasso_coeffs.mean():.3f}]")
+        logger.info(f"Batch {i}:")
+        logger.info(f"  X: {X.shape}")
+        logger.info(f"  y: {y.shape}")
+        logger.info(f"  lasso_coeffs: {lasso_coeffs.shape}")
+        logger.info(f"  Coeff mean: [{lasso_coeffs.mean():.3f}]")
         
         if i >= 2:
             break

@@ -1,5 +1,8 @@
 import torch
+import logging
+import sys
 import numpy as np
+
 
 def set_seed(seed: int):
     """Set global seed for reproducibility."""
@@ -20,3 +23,24 @@ def generate_exp_name_from_config(config):
         f"boot{config.feature_selection.n_bootstrap}",
     ]
     return "_".join(name_parts)
+
+
+def setup_logger(
+    name: str = __name__,
+    level: int = logging.INFO,
+    format_string: str = '[%(asctime)s][%(levelname)s] %(message)s',
+    date_format: str = '%Y-%m-%d %H:%M:%S'
+) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    
+    logger.handlers.clear()
+    
+    formatter = logging.Formatter(fmt=format_string, datefmt=date_format)
+    
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    return logger
