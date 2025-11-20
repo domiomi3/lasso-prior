@@ -92,6 +92,7 @@ class TrainingConfig:
     optimizer: OptimizerConfig
     wandb: WandBConfig
 
+    experiment_name: str = "default_exp"
     num_steps: int = 10000
     batch_size: int = 4
     seed: int = 42
@@ -103,6 +104,7 @@ class TrainingConfig:
     resume_from: Optional[str] = None
     device: Optional[str] = None
     grad_accum_steps: int = 4 # effective size is that *batch_size
+    embedding_layer: int = 4
 
 
 @dataclass

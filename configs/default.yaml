@@ -1,5 +1,5 @@
 prior:
-  num_steps: 1 
+  num_steps: 4000 
   batch_size: 4 
   device: "cpu"
   min_features: 50
@@ -30,12 +30,12 @@ feature_selection:
 
 data_generation:
   output_dir: "experiments/data/generated"
-  exp_name: "lasso_prior"
+  exp_name: "test_on_real_data"
   add_timestamp: True
 
 training:
   data_loader:
-    data_dir: "experiments/data/generated/lasso_100_b4_20251119_104955"
+    data_dir: "experiments/data/generated/training_data_10000_20251119_142507"
     max_sparsity_dataset: 0.95
     max_sparsity_batch: 0.85
     load_to_memory: true
@@ -43,7 +43,7 @@ training:
     train_test_split: 0.8
   
   model:
-    model_name: "TabPFN-Wide-8k"
+    model_name: "TabPFN-Wide-5k"
     model_path: "./models"
     embedding_layer: 4
   
@@ -57,16 +57,18 @@ training:
     use_wandb: True
     project: "tabpfnwide-pretraining"
     entity: "domiomi3"
-    run_name: "test"
+    run_name: "bs4_stp4000_emb4"
   
-  num_steps: 100
+  experiment_name: "train_lasso_4000"
+  num_steps: 4000
   batch_size: 4
   seed: 42
   checkpoint_dir: "checkpoints"
   val_data_dir: "experiments/data/generated/validation_data_200_20251119_135150"
-  save_interval: 250
-  log_interval: 5
+  save_interval: 500
+  log_interval: 10
   val_interval: 20
   resume_from: null
   device: null 
   grad_accum_steps: 4
+  embedding_layer: 4

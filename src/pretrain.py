@@ -1,18 +1,17 @@
 import torch
-import logging
 import time
 import wandb
+from datetime import datetime
 
 from torch import nn
 from torch.optim import AdamW
 from pathlib import Path
-from tqdm import tqdm
 from contextlib import nullcontext
 
-from tabpfn.model.loading import load_model_criterion_config
 from src.data.load_datasets import create_dataloader
 from src.utils.config import load_config, TrainingConfig
 from src.utils.misc import set_seed, setup_logger
+from src.model.decoder import TabPFNDecoder
 
 
 class Trainer:
@@ -25,7 +24,7 @@ class Trainer:
         self._configure_amp()
         
         
-        self.experiment_name = config.data_loader.data_dir.split("/")[-1]
+        self.experiment_name = config.experiment_name + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
         self.checkpoint_dir = Path(config.checkpoint_dir) / self.experiment_name
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         
@@ -33,10 +32,9 @@ class Trainer:
 
         self._log_config()
         
-        self.logger.info(f"[MODEL] Loading {config.model.model_name}..")
+        self.logger.info(f"[MODEL] Loading {config.model.model_name} with trainable decoder..")
         self.model = self._load_model()
         self.model.train()
-        self.logger.info(f"[MODEL] Model loaded")
 
         self.logger.info(f"[DATA] Loading data from {config.data_loader.data_dir}..")
         self.train_test_split = config.data_loader.__dict__.pop("train_test_split", 0.3)
@@ -112,35 +110,23 @@ class Trainer:
             
             self.logger.info(f"\n[SETUP] WandB initialized: {self.wandb_run.url}")
 
-    def _load_model(self): # from tabpfn-wide
-        valid_models = ["TabPFN-Wide-1.5k", "TabPFN-Wide-5k", "TabPFN-Wide-8k", "TabPFNv2"]
-        assert self.config.model.model_name in valid_models, f"Invalid model: {self.config.model.model_name}"
-        
-        model, _, _ = load_model_criterion_config(
-            model_path=None,
-            check_bar_distribution_criterion=False,
-            cache_trainset_representation=False,
-            which='classifier',
-            version='v2',
-            download=True,
+    def _load_model(self):
+        model = TabPFNDecoder(
+            model_name=self.config.model.model_name,
+            embedding_layer=getattr(self.config.model, 'embedding_layer', -1),
+            device=self.device,
         )
         
-        if self.config.model.model_name != "TabPFNv2":
-            model.features_per_group = 1
-            checkpoint_path = Path(f"./external/models/{self.config.model.model_name}_submission.pt")
-            
-            if not checkpoint_path.exists():
-                raise FileNotFoundError(f"[MODEL] Model not found: {checkpoint_path}")
-            
-            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-            model.load_state_dict(checkpoint)
-            self.logger.info(f"[MODEL] Loaded weights from {checkpoint_path.name}")
+        total_params = sum(p.numel() for p in model.parameters())
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        self.logger.info(f"[MODEL] Total parameters: {total_params:,}")
+        self.logger.info(f"[MODEL] Trainable parameters (decoder): {trainable_params:,}")
         
-        return model.to(self.device)
+        return model
 
     def _set_optimizer_and_scheduler(self):
         optimizer = AdamW(
-            self.model.parameters(),
+            self.model.decoder.parameters(),
             lr=self.config.optimizer.learning_rate,
             weight_decay=self.config.optimizer.weight_decay
         )
@@ -193,7 +179,7 @@ class Trainer:
         checkpoint = {
             "step": step,
             "config": self.config,
-            "model_state": self.model.state_dict(),
+            "model_state": self.model.decoder.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
             "scheduler_state": self.scheduler.state_dict(),
             "best_val_loss": self.best_val_loss,
@@ -218,7 +204,7 @@ class Trainer:
             weights_only=False
         )
         
-        self.model.load_state_dict(checkpoint["model_state"])
+        self.model.decoder.load_state_dict(checkpoint["model_state"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state"])
         self.scheduler.load_state_dict(checkpoint["scheduler_state"])
         step = checkpoint["step"]
@@ -229,7 +215,7 @@ class Trainer:
         return step
     
     def _log_config(self):
-        self.logger.info(f"\n{'='*60}")
+        self.logger.info(f"{'='*60}")
         self.logger.info(f"Training Configuration")
         self.logger.info(f"{'='*60}")
         self.logger.info(f"Experiment: {self.experiment_name}")
@@ -272,9 +258,9 @@ class Trainer:
                         )
                         pred_logits = pred_logits.float()
                     
-                    dummy_pred = pred_logits.mean()
-                    dummy_target = lasso_coeffs.mean()
-                    loss = self.criterion(dummy_pred, dummy_target)
+                    pred_logits = pred_logits[self.model.mask]
+                    lasso_coeffs = lasso_coeffs.reshape(-1) 
+                    loss = self.criterion(pred_logits, lasso_coeffs)
                     
                     total_loss += loss.item()
                     total_batches += 1
@@ -329,7 +315,6 @@ class Trainer:
                 continue
             
             X_train, y_train, X_test, y_test, lasso_coeffs = self._prepare_batch(batch)
-            
             try:
                 with self.amp_ctx:
                     pred_logits = self.model(
@@ -337,11 +322,11 @@ class Trainer:
                         train_y=y_train,
                         test_x=X_test,
                     )
-                    pred_logits = pred_logits.float()
+                    pred_logits = pred_logits.float() # (batch_size, pad_size)
                 
-                dummy_pred = pred_logits.mean()
-                dummy_target = lasso_coeffs.mean()
-                loss = self.criterion(dummy_pred, dummy_target) / self.grad_accum_steps  # need to scale loss
+                pred_logits = pred_logits[self.model.mask]
+                lasso_coeffs = lasso_coeffs.reshape(-1) 
+                loss = self.criterion(pred_logits, lasso_coeffs) / self.grad_accum_steps  # need to scale loss
                 
                 self.scaler.scale(loss).backward()  # scale up to prevent underflow in float16
                 

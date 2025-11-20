@@ -22,7 +22,7 @@ feature_selection:
   n_bootstrap: 20
   max_iter: 5000
   normalize: true
-  random_state: 66
+  random_state: 11
   tolerance: 0.01
   C_min: 0.1
   C_max: 0.4
@@ -32,3 +32,10 @@ data_generation:
   output_dir: "experiments/data/generated"
   exp_name: "training_data_10000"
   add_timestamp: True
+
+training:
+  wandb:
+    use_wandb: True
+    project: "tabpfnwide-pretraining"
+    entity: "domiomi3"
+    run_name: "bs4_stp4000_emb4"
