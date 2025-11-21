@@ -6,8 +6,8 @@ import argparse
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 
-from src.utils.config import load_config
-from src.utils.misc import setup_logger
+from lasso_prior.utils.config import load_config
+from lasso_prior.utils.misc import setup_logger
 
 logger = setup_logger(__name__)
 

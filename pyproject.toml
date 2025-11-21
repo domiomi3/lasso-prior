@@ -1,9 +1,21 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "matusd-tab-priors"
+name = "lasso_prior"
 version = "0.1.0"
-description = "Add your description here"
+description = "TabPFN-based feature selection with lasso prior"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
+    "numpy",
+    "torch",
+    "scikit-learn",
+    "pyyaml",
+    "tqdm",
     "tabpfn==2.2.1",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]

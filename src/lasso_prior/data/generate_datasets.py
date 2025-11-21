@@ -12,9 +12,9 @@ from datetime import datetime
 
 from tabularpriors.dataloader import TabICLPriorDataLoader
 
-from src.data.lasso_prior import generate_lasso_batches
-from src.utils.config import load_config
-from src.utils.misc import generate_exp_name_from_config, setup_logger
+from lasso_prior.data.lasso_prior import generate_lasso_batches
+from lasso_prior.utils.config import load_config
+from lasso_prior.utils.misc import generate_exp_name_from_config, setup_logger
 
 logger = setup_logger(__name__)
 

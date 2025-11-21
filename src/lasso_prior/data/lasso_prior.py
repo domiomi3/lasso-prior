@@ -15,8 +15,8 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from tabicl.train.run import Timer
 from tabularpriors.dataloader import TabICLPriorDataLoader
 
-from src.utils.config import load_config
-from src.utils.misc import setup_logger
+from lasso_prior.utils.config import load_config
+from lasso_prior.utils.misc import setup_logger
 
 logger = setup_logger(__name__)
 

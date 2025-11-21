@@ -10,10 +10,10 @@ from contextlib import nullcontext
 
 from tabicl.train.optim import get_cosine_with_restarts
 
-from src.data.load_datasets import create_dataloader
-from src.utils.config import load_config, TrainingConfig
-from src.utils.misc import set_seed, setup_logger
-from src.model.decoder import TabPFNFeatureSelector
+from lasso_prior.data.load_datasets import create_dataloader
+from lasso_prior.utils.config import load_config, TrainingConfig
+from lasso_prior.utils.misc import set_seed, setup_logger
+from lasso_prior.model.decoder import TabPFNFeatureSelector
 
 
 class Trainer:

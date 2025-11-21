@@ -4,7 +4,7 @@ import torch.nn as nn
 from pathlib import Path
 from tabpfn.model.loading import load_model_criterion_config
 
-from src.utils.misc import setup_logger
+from lasso_prior.utils.misc import setup_logger
 
 logger = setup_logger(__name__)
 
