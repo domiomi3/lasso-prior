@@ -38,7 +38,7 @@ class Trainer:
         self.model.train()
 
         self.logger.info(f"[DATA] Loading data from {config.data_loader.data_dir}..")
-        self.train_test_split = config.data_loader.__dict__.pop("train_test_split", 0.3)
+        self.train_ratio = config.data_loader.__dict__.pop("train_ratio", 0.7)
         self.train_loader = create_dataloader(**config.data_loader.__dict__)
         self.logger.info(f"[DATA] DataLoader loaded: {len(self.train_loader)} batches")
         
@@ -86,7 +86,7 @@ class Trainer:
                 "grad_accum_steps": self.grad_accum_steps,
                 "seed": self.config.seed,
                 "device": self.device,
-                "train_test_split": self.train_test_split,
+                "train_ratio": self.train_ratio,
             }
             
             wandb_project = getattr(self.config.wandb, 'project', 'tabpfn-training')
@@ -166,7 +166,7 @@ class Trainer:
         lasso_coeffs = batch['lasso_coeffs'].to(self.device)  # (batch_size, n_features)
         
         _, seq_len, _ = X.shape
-        train_size = int(seq_len * self.train_test_split)
+        train_size = int(seq_len * self.train_ratio)
         
         X_train = X[:, :train_size, :].transpose(0, 1) # (seq_len, batch_size, n_features)
         X_test = X[:, train_size:, :].transpose(0, 1)

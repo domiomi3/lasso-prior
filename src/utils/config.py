@@ -61,7 +61,7 @@ class DataLoadingConfig:
     num_workers: int = 0
     pin_memory: bool = True
     verbose: bool = True
-    train_test_split: float = 0.8
+    train_ratio: float = 0.8
 
 
 @dataclass
