@@ -114,6 +114,7 @@ class Trainer:
     def _load_model(self):
         model = TabPFNFeatureSelector(
             model_name=self.config.model.model_name,
+            model_checkpoint_dir=self.config.model.model_checkpoint_dir,
             embedding_layer=getattr(self.config.model, 'embedding_layer', -1),
             device=self.device,
         )
@@ -323,7 +324,6 @@ class Trainer:
                     )
                     pred_logits = pred_logits.float() # (batch_size, n_features)
                 
-                breakpoint()
                 pred_logits = pred_logits.reshape(-1) # (batch_size*n_features)
                 lasso_coeffs = lasso_coeffs.reshape(-1) 
                 loss = self.criterion(pred_logits, lasso_coeffs) / self.grad_accum_steps # need to scale loss

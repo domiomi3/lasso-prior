@@ -16,12 +16,14 @@ class TabPFNFeatureSelector(nn.Module):
     def __init__(
         self,
         model_name: str = "TabPFN-Wide-5k",
+        model_checkpoint_dir: str = "external/models",
         embedding_layer: int = 4,
         device: str = "cuda",
     ):
         super().__init__()
         
         self.model_name = model_name
+        self.model_checkpoint_dir = model_checkpoint_dir
         self.embedding_layer = embedding_layer
         self.device = device
         
@@ -60,14 +62,14 @@ class TabPFNFeatureSelector(nn.Module):
         # Load checkpoint for non-v2 models
         if self.model_name != "TabPFNv2":
             model.features_per_group = 1
-            checkpoint_path = Path(f"./external/models/{self.model_name}_submission.pt")
+            checkpoint_path = Path(f"{self.model_checkpoint_dir}/{self.model_name}_submission.pt")
             
             if not checkpoint_path.exists():
                 raise FileNotFoundError(f"Model not found: {checkpoint_path}")
             
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
             model.load_state_dict(checkpoint)
-            logger.info(f"[MODEL] Loaded weights from {checkpoint_path.name}")
+            logger.info(f"[MODEL] Loaded weights from {checkpoint_path}")
         
         return model.to(self.device)
     

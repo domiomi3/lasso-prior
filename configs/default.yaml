@@ -44,7 +44,7 @@ training:
   
   model:
     model_name: "TabPFN-Wide-5k"
-    model_path: "./models"
+    model_checkpoint_dir: "external/models"
     embedding_layer: 4
   
   optimizer:

@@ -67,7 +67,7 @@ class DataLoadingConfig:
 @dataclass
 class ModelConfig:
     model_name: str = "TabPFN-Wide-5k"
-    model_path: str = "./models"
+    model_checkpoint_dir: str = "external/models"
     embedding_layer: int = 4
 
 
