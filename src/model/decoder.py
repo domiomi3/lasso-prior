@@ -1,6 +1,6 @@
-import logging
 import torch
 import torch.nn as nn
+
 from pathlib import Path
 from tabpfn.model.loading import load_model_criterion_config
 
@@ -8,14 +8,14 @@ from src.utils.misc import setup_logger
 
 logger = setup_logger(__name__)
 
-class TabPFNDecoder(nn.Module):
+class TabPFNFeatureSelector(nn.Module):
     """
-    TabPFN-Wide encoder (frozen) + decoder for feature importance.
+    TabPFN-Wide encoder (frozen) + decoder for feature selection task.
     """
     
     def __init__(
         self,
-        model_name: str = "TabPFN-Wide-8k",
+        model_name: str = "TabPFN-Wide-5k",
         embedding_layer: int = 4,
         device: str = "cuda",
     ):
@@ -39,7 +39,7 @@ class TabPFNDecoder(nn.Module):
         # decoder
         self.pad_size = 10000
         self.mask = None
-        self.hidden_dims = [128, 64, 32]
+        self.hidden_dims = [256, 128, 64, 32]
         self.dropout = 0.1
         self.decoder = self._create_decoder()
     
@@ -78,12 +78,36 @@ class TabPFNDecoder(nn.Module):
         for hidden_dim in self.hidden_dims:
             layers.append(nn.Linear(in_dim, hidden_dim))
             layers.append(nn.BatchNorm1d(hidden_dim))
-            layers.append(nn.ReLU())
+            layers.append(nn.GELU(approximate='none'))
             layers.append(nn.Dropout(self.dropout))
             in_dim = hidden_dim
 
         layers.append(nn.Linear(in_dim, 1))
         return nn.Sequential(*layers).to(self.device)
+
+    def load_decoder_checkpoint(self, checkpoint_path: str | Path):
+        """       
+        Args:
+            checkpoint_path: Path to checkpoint file (e.g., 'checkpoints/best_model.pt')
+        
+        Returns:
+            self
+        """
+        checkpoint_path = Path(checkpoint_path)
+        
+        if not checkpoint_path.exists():
+            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+        
+        logger.info(f"[MODEL] Loading decoder checkpoint from {checkpoint_path}")
+        
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+        
+        self.decoder.load_state_dict(checkpoint["model_state"])
+        self.decoder.eval()
+        
+        logger.info(f"[MODEL] Decoder loaded successfully (step: {checkpoint.get('step', 'unknown')})")
+        
+        return self
 
     def _register_hook(self):
         """Register forward hook to extract embeddings from layer K."""
@@ -106,7 +130,7 @@ class TabPFNDecoder(nn.Module):
             embeddings: (batch_size, train_seq_len+test_seq_len, n_features+1, embedding_size)
         """
         with torch.no_grad():
-            _ = self.encoder(train_x=train_x, train_y=train_y, test_x=test_x)
+            _ = self.encoder(train_x=train_x, train_y=train_y, test_x=test_x) #(batch_size, train_seq_len+test_seq_len, n_features+1, embedding_size)
 
         # aggregate the feature embeddings across samples and pad to fixed size
         avg_pool_embeddings = self.embeddings["data"].mean(dim=1) #(batch_size, n_features+1, embedding_size)
@@ -139,5 +163,5 @@ class TabPFNDecoder(nn.Module):
         # run through decoder
         out = self.decoder(flat_embeddings) # (batch_size * self.pad_size, 1)
         out = out.reshape(batch_size, self.pad_size) # (batch_size, self.pad_size)
-
-        return self.mask*out
+        
+        return out[self.mask].reshape(batch_size, n_features)

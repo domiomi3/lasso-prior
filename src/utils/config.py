@@ -66,7 +66,7 @@ class DataLoadingConfig:
 
 @dataclass
 class ModelConfig:
-    model_name: str = "TabPFN-Wide-8k"
+    model_name: str = "TabPFN-Wide-5k"
     model_path: str = "./models"
     embedding_layer: int = 4
 
@@ -77,6 +77,9 @@ class OptimizerConfig:
     weight_decay: float = 1e-4
     gradient_clip: float = 1.0
     scheduler: str = "cosine"
+    warmup_proportion: float = 0.02
+    num_cycles: int = 10
+
 
 @dataclass
 class WandBConfig:

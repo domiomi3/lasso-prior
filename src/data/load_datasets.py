@@ -88,7 +88,7 @@ class LassoPriorDataset(Dataset):
                 log_min = log_coeffs.min()
                 log_max = log_coeffs.max()
                 
-                if log_max > log_min:
+                if log_max > log_min: # scale to [0,1]
                     log_norm = (log_coeffs - log_min) / (log_max - log_min)
                 else:
                     log_norm = np.zeros_like(coeffs)

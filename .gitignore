@@ -16,3 +16,4 @@ inspect.ipynb
 .gitmodules
 wandb/
 checkpoints/
+test_decoder.py

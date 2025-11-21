@@ -8,10 +8,12 @@ from torch.optim import AdamW
 from pathlib import Path
 from contextlib import nullcontext
 
+from tabicl.train.optim import get_cosine_with_restarts
+
 from src.data.load_datasets import create_dataloader
 from src.utils.config import load_config, TrainingConfig
 from src.utils.misc import set_seed, setup_logger
-from src.model.decoder import TabPFNDecoder
+from src.model.decoder import TabPFNFeatureSelector
 
 
 class Trainer:
@@ -22,7 +24,6 @@ class Trainer:
         self.logger = setup_logger()
         set_seed(config.seed)
         self._configure_amp()
-        
         
         self.experiment_name = config.experiment_name + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
         self.checkpoint_dir = Path(config.checkpoint_dir) / self.experiment_name
@@ -47,7 +48,7 @@ class Trainer:
         else:
             self.val_loader = None
 
-        self.optimizer, self.scheduler = self._set_optimizer_and_scheduler()
+        self.optimizer, self.scheduler = self._load_optimizer_and_scheduler()
         
         self.criterion = nn.MSELoss()
                 
@@ -111,7 +112,7 @@ class Trainer:
             self.logger.info(f"\n[SETUP] WandB initialized: {self.wandb_run.url}")
 
     def _load_model(self):
-        model = TabPFNDecoder(
+        model = TabPFNFeatureSelector(
             model_name=self.config.model.model_name,
             embedding_layer=getattr(self.config.model, 'embedding_layer', -1),
             device=self.device,
@@ -124,20 +125,18 @@ class Trainer:
         
         return model
 
-    def _set_optimizer_and_scheduler(self):
+    def _load_optimizer_and_scheduler(self):
         optimizer = AdamW(
             self.model.decoder.parameters(),
             lr=self.config.optimizer.learning_rate,
             weight_decay=self.config.optimizer.weight_decay
         )
         
-        if self.config.optimizer.scheduler == "cosine":
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, T_max=self.config.num_steps
-            )
-        else:
-            raise ValueError(f"[SETUP] Unknown scheduler: {self.config.optimizer.scheduler}")
-        
+        scheduler = get_cosine_with_restarts(
+            optimizer, int(self.config.num_steps * self.config.optimizer.warmup_proportion), 
+            self.config.num_steps, self.config.optimizer.num_cycles
+        )
+
         return optimizer, scheduler
     
     def _load_validation_data(self):
@@ -322,11 +321,12 @@ class Trainer:
                         train_y=y_train,
                         test_x=X_test,
                     )
-                    pred_logits = pred_logits.float() # (batch_size, pad_size)
+                    pred_logits = pred_logits.float() # (batch_size, n_features)
                 
-                pred_logits = pred_logits[self.model.mask]
+                breakpoint()
+                pred_logits = pred_logits.reshape(-1) # (batch_size*n_features)
                 lasso_coeffs = lasso_coeffs.reshape(-1) 
-                loss = self.criterion(pred_logits, lasso_coeffs) / self.grad_accum_steps  # need to scale loss
+                loss = self.criterion(pred_logits, lasso_coeffs) / self.grad_accum_steps # need to scale loss
                 
                 self.scaler.scale(loss).backward()  # scale up to prevent underflow in float16
                 
