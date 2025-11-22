@@ -35,6 +35,7 @@ class TabPFNFeatureSelector(nn.Module):
         
         # embedding extraction
         self.embeddings = {'data': None}
+        self.hook_handle = None
         self._register_hook()
         self.emb_size = self.encoder.ninp
         
@@ -111,13 +112,15 @@ class TabPFNFeatureSelector(nn.Module):
         
         return self
 
+    def _hook_fn(self, module, input, output):
+        """Hook function to extract embeddings."""
+        self.embeddings['data'] = output
+    
     def _register_hook(self):
         """Register forward hook to extract embeddings from layer K."""
-        def hook_fn(module, input, output):
-            self.embeddings['data'] = output
         try:
-            layer = self.encoder.transformer_encoder.layers[self.embedding_layer] # PerFeatureEncoderLayer
-            layer.register_forward_hook(hook_fn)
+            layer = self.encoder.transformer_encoder.layers[self.embedding_layer]
+            self.hook_handle = layer.register_forward_hook(self._hook_fn)
         except (AttributeError, IndexError) as e:
             raise RuntimeError(f"Could not register hook at layer {self.embedding_layer}: {e}")
     
