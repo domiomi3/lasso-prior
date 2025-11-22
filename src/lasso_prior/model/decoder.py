@@ -26,6 +26,7 @@ class TabPFNFeatureSelector(nn.Module):
         self.model_checkpoint_dir = model_checkpoint_dir
         self.embedding_layer = embedding_layer
         self.device = device
+        self.verbose = False
         
         # load and freeze the model
         self.encoder = self._load_tabpfn()
@@ -70,7 +71,8 @@ class TabPFNFeatureSelector(nn.Module):
             
             checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
             model.load_state_dict(checkpoint)
-            logger.info(f"[MODEL] Loaded weights from {checkpoint_path}")
+            if self.verbose:
+                logger.info(f"[MODEL] Loaded weights from {checkpoint_path}")
         
         return model.to(self.device)
     
@@ -101,14 +103,16 @@ class TabPFNFeatureSelector(nn.Module):
         if not checkpoint_path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
         
-        logger.info(f"[MODEL] Loading decoder checkpoint from {checkpoint_path}")
+        if self.verbose:
+            logger.info(f"[MODEL] Loading decoder checkpoint from {checkpoint_path}")
         
         checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         
         self.decoder.load_state_dict(checkpoint["model_state"])
         self.decoder.eval()
         
-        logger.info(f"[MODEL] Decoder loaded successfully (step: {checkpoint.get('step', 'unknown')})")
+        if self.verbose:
+            logger.info(f"[MODEL] Decoder loaded successfully (step: {checkpoint.get('step', 'unknown')})")
         
         return self
 

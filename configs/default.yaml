@@ -35,7 +35,7 @@ data_generation:
 
 training:
   data_loader:
-    data_dir: "experiments/data/generated/training_data_10000_20251119_142507"
+    data_dir: "experiments/data/generated/all_training_data"
     max_sparsity_dataset: 0.95
     max_sparsity_batch: 0.85
     load_to_memory: true
@@ -61,8 +61,8 @@ training:
     entity: "domiomi3"
     run_name: "bs4_stp4000_emb4_144kparams"
   
-  experiment_name: "train_lasso_4000"
-  num_steps: 4000
+  experiment_name: "train_lasso_12000"
+  num_steps: 12000
   batch_size: 4
   seed: 42
   checkpoint_dir: "checkpoints"
