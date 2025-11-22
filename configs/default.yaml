@@ -67,9 +67,9 @@ training:
   seed: 42
   checkpoint_dir: "checkpoints"
   val_data_dir: "experiments/data/generated/validation_data_200_20251119_135150"
-  save_interval: 500
+  save_interval: 50 #500
   log_interval: 10
-  val_interval: 20
+  val_interval: 40 #20
   resume_from: null
   device: null 
   grad_accum_steps: 4

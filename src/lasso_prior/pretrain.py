@@ -168,17 +168,16 @@ class Trainer:
         _, seq_len, _ = X.shape
         train_size = int(seq_len * self.train_ratio)
         
-        X_train = X[:, :train_size, :].transpose(0, 1) # (seq_len, batch_size, n_features)
-        X_test = X[:, train_size:, :].transpose(0, 1)
-        y_train = y[:, :train_size].transpose(0, 1) # (seq_len, batch_size)
+        X = X.transpose(0, 1) # (train+test_seq_len, batch_size, n_features)
+        y_train = y[:, :train_size].transpose(0, 1) # (train_seq_len, batch_size)
         y_test = y[:, train_size:].transpose(0, 1)
         
-        return X_train, y_train, X_test, y_test, lasso_coeffs
+        return X, y_train, y_test, lasso_coeffs
     
     def _save_checkpoint(self, step: int, is_best: bool = False):
         checkpoint = {
             "step": step,
-            "config": self.config,
+            "config": self.config.__dict__,
             "model_state": self.model.decoder.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
             "scheduler_state": self.scheduler.state_dict(),
@@ -248,17 +247,13 @@ class Trainer:
                     continue
                 
                 try:
-                    X_train, y_train, X_test, y_test, lasso_coeffs = self._prepare_batch(batch)
+                    X, y_train, y_test, lasso_coeffs = self._prepare_batch(batch)
                     
                     with self.amp_ctx:
-                        pred_logits = self.model(
-                            train_x=X_train,
-                            train_y=y_train,
-                            test_x=X_test,
-                        )
+                        pred_logits = self.model(X, y_train)
                         pred_logits = pred_logits.float()
                     
-                    pred_logits = pred_logits[self.model.mask]
+                    pred_logits = pred_logits.reshape(-1)
                     lasso_coeffs = lasso_coeffs.reshape(-1) 
                     loss = self.criterion(pred_logits, lasso_coeffs)
                     
@@ -314,14 +309,10 @@ class Trainer:
             if batch is None:
                 continue
             
-            X_train, y_train, X_test, y_test, lasso_coeffs = self._prepare_batch(batch)
+            X, y_train, y_test, lasso_coeffs = self._prepare_batch(batch)
             try:
                 with self.amp_ctx:
-                    pred_logits = self.model(
-                        train_x=X_train,
-                        train_y=y_train,
-                        test_x=X_test,
-                    )
+                    pred_logits = self.model(X, y_train)
                     pred_logits = pred_logits.float() # (batch_size, n_features)
                 
                 pred_logits = pred_logits.reshape(-1) # (batch_size*n_features)

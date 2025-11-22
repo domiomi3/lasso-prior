@@ -121,18 +121,17 @@ class TabPFNFeatureSelector(nn.Module):
         except (AttributeError, IndexError) as e:
             raise RuntimeError(f"Could not register hook at layer {self.embedding_layer}: {e}")
     
-    def forward(self, train_x, train_y, test_x):
+    def forward(self, X, y_train):
         """        
         Args:
-            train_x: (train_seq_len, batch_size, n_features)
-            train_y: (train_seq_len, batch_size)
-            test_x: (test_seq_len, batch_size, n_features)
+            X: (train+test_seq_len, batch_size, n_features)
+            y_train: (train_seq_len, batch_size)
         
         Returns:
             embeddings: (batch_size, train_seq_len+test_seq_len, n_features+1, embedding_size)
         """
         with torch.no_grad():
-            _ = self.encoder(train_x=train_x, train_y=train_y, test_x=test_x) #(batch_size, train_seq_len+test_seq_len, n_features+1, embedding_size)
+            _ = self.encoder(X, y_train) #(batch_size, train_seq_len+test_seq_len, n_features+1, embedding_size)
 
         # aggregate the feature embeddings across samples and pad to fixed size
         avg_pool_embeddings = self.embeddings["data"].mean(dim=1) #(batch_size, n_features+1, embedding_size)
@@ -165,5 +164,5 @@ class TabPFNFeatureSelector(nn.Module):
         # run through decoder
         out = self.decoder(flat_embeddings) # (batch_size * self.pad_size, 1)
         out = out.reshape(batch_size, self.pad_size) # (batch_size, self.pad_size)
-        
+
         return out[self.mask].reshape(batch_size, n_features)
