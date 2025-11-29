@@ -43,7 +43,7 @@ class TabPFNFeatureSelector(nn.Module):
         # decoder
         self.pad_size = 10000
         self.mask = None
-        self.hidden_dims = [256, 128, 64, 32]
+        self.hidden_dims = [512, 256, 128, 64, 32] #8k,power of two, go down
         self.dropout = 0.1
         self.decoder = self._create_decoder()
     
@@ -52,14 +52,14 @@ class TabPFNFeatureSelector(nn.Module):
         valid_models = ["TabPFN-Wide-1.5k", "TabPFN-Wide-5k", "TabPFN-Wide-8k", "TabPFNv2"]
         assert self.model_name in valid_models, f"Invalid model: {self.model_name}"
         
-        model, _, _ = load_model_criterion_config(
+        model = load_model_criterion_config(
             model_path=None,
             check_bar_distribution_criterion=False,
             cache_trainset_representation=False,
             which='classifier',
             version='v2',
-            download=True,
-        )
+            download_if_not_exists=True,
+        )[0][0]
         
         # Load checkpoint for non-v2 models
         if self.model_name != "TabPFNv2":
@@ -87,7 +87,7 @@ class TabPFNFeatureSelector(nn.Module):
             layers.append(nn.Dropout(self.dropout))
             in_dim = hidden_dim
 
-        layers.append(nn.Linear(in_dim, 1))
+        layers.append(nn.Linear(in_dim, 1)) # one coeff per feature
         return nn.Sequential(*layers).to(self.device)
 
     def load_decoder_checkpoint(self, checkpoint_path: str | Path):
@@ -168,13 +168,13 @@ class TabPFNFeatureSelector(nn.Module):
             # flat for batchnorm
             flat_embeddings = padded_embeddings.reshape(-1, feature_y_embeddings.shape[-1])  # (batch_size*pad_size, emb_size*2)
                     
-            # run through decoder
-            out = self.decoder(flat_embeddings) # (batch_size * self.pad_size, 1)
-            out = out.reshape(batch_size, self.pad_size) # (batch_size, self.pad_size)
+        # run through decoder
+        out = self.decoder(flat_embeddings) # (batch_size * self.pad_size, 1)
+        out = out.reshape(batch_size, self.pad_size) # (batch_size, self.pad_size)
 
-            result = out[self.mask].reshape(batch_size, n_features)
+        result = out[self.mask].reshape(batch_size, n_features)
+    
+        del avg_pool_embeddings, features_emb, y_emb, feature_y_embeddings
+        del padding, padded_embeddings, flat_embeddings, out
         
-            del avg_pool_embeddings, features_emb, y_emb, feature_y_embeddings
-            del padding, padded_embeddings, flat_embeddings, out
-            
-            return result
+        return result

@@ -14,7 +14,11 @@ dependencies = [
     "scikit-learn",
     "pyyaml",
     "tqdm",
-    "tabpfn==2.2.1",
+    "tabpfn>=6.0.6",
+    "wandb>=0.23.0",
+    "tabicl>=0.1.4",
+    "pyarrow>=22.0.0",
+    "h5py>=3.15.1",
 ]
 
 [tool.setuptools.packages.find]
