@@ -104,10 +104,11 @@ class TrainingConfig:
     save_interval: int = 500
     log_interval: int = 100
     val_interval: int = 100
+    early_stopping_patience_steps: int = 200
+    early_stopping_min_delta: float = 0.0
     resume_from: Optional[str] = None
     device: Optional[str] = None
     grad_accum_steps: int = 4 # effective size is that *batch_size
-    embedding_layer: int = 4
 
 
 @dataclass

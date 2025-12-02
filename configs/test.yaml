@@ -48,29 +48,30 @@ training:
     embedding_layer: 4
   
   optimizer:
-    learning_rate: 0.0001
-    weight_decay: 0.0001
-    gradient_clip: 1.0
-    scheduler: "cosine"
-    warmup_proportion: 0.02
-    num_cycles: 10
+   learning_rate: 0.0001
+   weight_decay: 0.0001
+   gradient_clip: 1.0
+   scheduler: "cosine"
+   warmup_proportion: 0.02
+   num_cycles: 8
 
   wandb:
     use_wandb: True
     project: "tabpfnwide-pretraining"
     entity: "domiomi3"
-    run_name: "bs4_stp4000_emb4_300kparams"
+    run_name: "TEST_reg_bs4_stp1000_emb4_150kparams"
   
   experiment_name: "train_lasso_12000"
-  num_steps: 50
+  num_steps: 2
   batch_size: 4
   seed: 42
   checkpoint_dir: "checkpoints"
   val_data_dir: "experiments/data/generated/validation_data_200_20251119_135150"
-  save_interval: 50 #500
+  save_interval: 500 #500
   log_interval: 10
-  val_interval: 20 #20
+  val_interval: 50 #20
+  early_stopping_patience_steps: 300
+  early_stopping_min_delta: 0.0
   resume_from: null
   device: null 
   grad_accum_steps: 4
-  embedding_layer: 4

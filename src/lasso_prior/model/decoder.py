@@ -41,10 +41,10 @@ class TabPFNFeatureSelector(nn.Module):
         self.emb_size = self.encoder.ninp
         
         # decoder
-        self.pad_size = 10000
+        self.pad_size = 6000
         self.mask = None
-        self.hidden_dims = [512, 256, 128, 64, 32] #8k,power of two, go down
-        self.dropout = 0.1
+        self.hidden_dims = [256, 128, 64]
+        self.dropout = 0.2
         self.decoder = self._create_decoder()
     
     def _load_tabpfn(self):
@@ -82,7 +82,7 @@ class TabPFNFeatureSelector(nn.Module):
         in_dim = self.emb_size*2
         for hidden_dim in self.hidden_dims:
             layers.append(nn.Linear(in_dim, hidden_dim))
-            layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(nn.LayerNorm(hidden_dim))
             layers.append(nn.GELU(approximate='none'))
             layers.append(nn.Dropout(self.dropout))
             in_dim = hidden_dim

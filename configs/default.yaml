@@ -49,11 +49,11 @@ training:
   
   optimizer:
     learning_rate: 0.0001
-    weight_decay: 0.0001
+    weight_decay: 0.001
     gradient_clip: 1.0
     scheduler: "cosine"
     warmup_proportion: 0.02
-    num_cycles: 12
+    num_cycles: 8
 
   wandb:
     use_wandb: True
@@ -69,8 +69,9 @@ training:
   val_data_dir: "experiments/data/generated/validation_data_200_20251119_135150"
   save_interval: 500 #500
   log_interval: 10
-  val_interval: 20 #20
+  val_interval: 50 #20
+  early_stopping_patience_steps: 300
+  early_stopping_min_delta: 0.0
   resume_from: null
   device: null 
   grad_accum_steps: 4
-  embedding_layer: 12

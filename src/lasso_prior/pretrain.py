@@ -1,3 +1,4 @@
+import argparse
 import torch
 import time
 import wandb
@@ -25,8 +26,16 @@ class Trainer:
         set_seed(config.seed)
         self._configure_amp()
         
-        self.experiment_name = config.experiment_name + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.checkpoint_dir = Path(config.checkpoint_dir) / self.experiment_name
+        cfg_run_name = getattr(config.wandb, "run_name", None)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        if cfg_run_name is not None:
+            self.run_name = f"{cfg_run_name}_{timestamp}"
+        else:
+            self.run_name = f"{config.experiment_name}_{timestamp}"
+
+        self.experiment_name = self.run_name
+        self.checkpoint_dir = Path(config.checkpoint_dir) / self.run_name
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         
         self.grad_accum_steps = config.grad_accum_steps
@@ -55,6 +64,10 @@ class Trainer:
         self.curr_step = 0
         self.oom_errors = 0
         self.best_val_loss = float('inf')
+        self.no_improve_steps = 0
+        self.early_stopping_patience_steps = getattr(config, "early_stopping_patience_steps", 200)
+        self.early_stopping_min_delta = getattr(config, "early_stopping_min_delta", 0.0)
+
         
         if config.resume_from:
             self.curr_step = self._load_checkpoint()
@@ -75,7 +88,7 @@ class Trainer:
         
         if self.use_wandb:
             wandb_config = {
-                "experiment": self.experiment_name,
+                "experiment": self.experiment_name,  
                 "model": self.config.model.model_name,
                 "learning_rate": self.config.optimizer.learning_rate,
                 "weight_decay": self.config.optimizer.weight_decay,
@@ -91,10 +104,10 @@ class Trainer:
             
             wandb_project = getattr(self.config.wandb, 'project', 'tabpfn-training')
             wandb_entity = getattr(self.config.wandb, 'entity', None)
-            wandb_run_name = getattr(self.config.wandb, 'run_name', None)
+            wandb_run_name = self.run_name
             
-            resume_id = getattr(self, 'wandb_id', None) # resuming
-            
+            resume_id = getattr(self, 'wandb_id', None)  # resuming
+
             self.wandb_run = wandb.init(
                 project=wandb_project,
                 entity=wandb_entity,
@@ -273,7 +286,7 @@ class Trainer:
             return None
         
         avg_val_loss = total_loss / total_batches
-     
+
         self.logger.info(f"[VAL] step: {self.curr_step} | loss: {avg_val_loss:.6f} | oom errors: {val_oom_errors}")        
 
         if self.use_wandb:
@@ -282,13 +295,19 @@ class Trainer:
                 "val/oom_errors": val_oom_errors,
             }, step=self.curr_step)
 
-        if avg_val_loss < self.best_val_loss:
+        if avg_val_loss < self.best_val_loss - self.early_stopping_min_delta:
+            # improvement
             self.best_val_loss = avg_val_loss
+            self.no_improve_steps = 0
             self._save_checkpoint(self.curr_step, is_best=True)
             self.logger.info(f"[VAL] New best validation loss: {avg_val_loss:.6f}")
 
             if self.use_wandb:
                 wandb.run.summary["best_val_loss"] = self.best_val_loss
+        else:
+            # no improvement
+            if self.val_interval > 0:
+                self.no_improve_steps += self.val_interval
 
         return avg_val_loss
 
@@ -371,7 +390,7 @@ class Trainer:
                     raise RuntimeError("Too many OOM errors, stopping training.")
                 continue
 
-            # log every 25 steps
+            # log every 10 steps
             if step % self.config.log_interval == 0:
                 self.logger.info(
                     f"[TRAIN] step: {step}/{self.config.num_steps} | "
@@ -380,16 +399,28 @@ class Trainer:
                     f"lr: {self.scheduler.get_last_lr()[0]:.6f} "
                 )
 
-            # validation every 20 steps
+            # validation every 50 steps
             if self.val_interval > 0 and step > 0 and step % self.val_interval == 0:
                 self._validate()
+            
+            if (
+                self.early_stopping_patience_steps is not None
+                and self.no_improve_steps >= self.early_stopping_patience_steps
+                and self.best_val_loss < float('inf')  # ensure we had at least one valid val
+            ):
+                self.logger.info(
+                    f"[EARLY STOP] No validation improvement for "
+                    f"{self.no_improve_steps} steps "
+                    f"(patience={self.early_stopping_patience_steps}). Stopping training."
+                )
+                break
             
             # save every 250 steps
             if step > 0 and step % self.config.save_interval == 0:
                 self._save_checkpoint(step)
         
         # final checkpoint
-        self._save_checkpoint(self.config.num_steps)
+        self._save_checkpoint(step)
 
         if self.use_wandb:
             wandb.finish()
@@ -403,6 +434,19 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    config = load_config("configs/default.yaml")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config_path", type=str, default="configs/default.yaml")
+    parser.add_argument("--embedding_layer", type=int, default=None)
+    parser.add_argument("--wandb_run_name", type=str, default=None)
+    args = parser.parse_args()
+
+    config = load_config(args.config_path)
+
+    if args.embedding_layer is not None:
+        config.training.model.embedding_layer = args.embedding_layer
+
+    if args.wandb_run_name is not None:
+        config.training.wandb.run_name = args.wandb_run_name
+
     trainer = Trainer(config.training)
     trainer.train()
