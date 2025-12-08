@@ -140,9 +140,6 @@ class TabPFNFeatureSelector(nn.Module):
         with torch.no_grad():
             _ = self.encoder(X, y_train) 
 
-            logger.info("Embeddings retrieved")
-            log_mem()
-
             data_emb = self.embeddings["data"]# (batch_size, train_seq_len+test_seq_len, n_features+1, emb_size)
             if y_train.ndim == 1: #no batch
                 train_len = y_train.shape[0]
@@ -156,8 +153,8 @@ class TabPFNFeatureSelector(nn.Module):
             batch_size, n_features, emb_size = avg_pool_embeddings.shape
             n_features = n_features-1 #accountig for y in the 1st dim
 
-            logger.info("Embeddings averaged")
-            log_mem()
+            # logger.info("Embeddings averaged")
+            # log_mem()
 
             if n_features > self.pad_size:
                 raise Warning(f"Number of features ({n_features}) exceeds fixed pad size ({self.pad_size})")
@@ -169,8 +166,8 @@ class TabPFNFeatureSelector(nn.Module):
             y_emb = y_emb.expand(-1, n_features, -1)  # (batch_size, n_features, emb_size)
             feature_y_embeddings = torch.cat([features_emb, y_emb], dim=-1)  # (batch_size, n_features, emb_size*2)
             
-            logger.info("Embeddings concatenated")
-            log_mem()
+            # logger.info("Embeddings concatenated")
+            # log_mem()
 
             del avg_pool_embeddings, features_emb, y_emb
 
@@ -181,8 +178,8 @@ class TabPFNFeatureSelector(nn.Module):
             )
             padded_embeddings = torch.cat([feature_y_embeddings, padding], dim=1)  # (batch_size, pad_size, emb_size*2)
 
-            logger.info("Embeddings padded")
-            log_mem()
+            # logger.info("Embeddings padded")
+            # log_mem()
 
             self.mask = torch.zeros(batch_size, self.pad_size, dtype=torch.bool, device=feature_y_embeddings.device)
             self.mask[:, :n_features] = True  # (batch_size, pad_size)
@@ -193,14 +190,14 @@ class TabPFNFeatureSelector(nn.Module):
             del padding, feature_y_embeddings
 
         # run through decoder
-        logger.info("Before decoder pass")
-        log_mem()
+        # logger.info("Before decoder pass")
+        # log_mem()
 
         out = self.decoder(flat_embeddings) # (batch_size * self.pad_size, 1)
         out = out.reshape(batch_size, self.pad_size) # (batch_size, self.pad_size)
         
-        logger.info("After decoder pass")
-        log_mem()
+        # logger.info("After decoder pass")
+        # log_mem()
 
         result = out[self.mask].reshape(batch_size, n_features)
     
