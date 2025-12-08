@@ -4,7 +4,7 @@ import torch.nn as nn
 from pathlib import Path
 from tabpfn.model.loading import load_model_criterion_config
 
-from lasso_prior.utils.misc import setup_logger
+from lasso_prior.utils.misc import setup_logger, log_mem
 
 logger = setup_logger(__name__)
 
@@ -41,7 +41,7 @@ class TabPFNFeatureSelector(nn.Module):
         self.emb_size = self.encoder.ninp
         
         # decoder
-        self.pad_size = 6000
+        self.pad_size = 6500
         self.mask = None
         self.hidden_dims = [256, 128, 64]
         self.dropout = 0.2
@@ -138,12 +138,26 @@ class TabPFNFeatureSelector(nn.Module):
             embeddings: (batch_size, train_seq_len+test_seq_len, n_features+1, embedding_size)
         """
         with torch.no_grad():
-            _ = self.encoder(X, y_train) #(batch_size, train_seq_len+test_seq_len, n_features+1, embedding_size)
+            _ = self.encoder(X, y_train) 
+
+            logger.info("Embeddings retrieved")
+            log_mem()
+
+            data_emb = self.embeddings["data"]# (batch_size, train_seq_len+test_seq_len, n_features+1, emb_size)
+            if y_train.ndim == 1: #no batch
+                train_len = y_train.shape[0]
+            else:
+                train_len = y_train.shape[1]
+            # allow only training sample embeddings
+            train_emb = data_emb[:, :train_len, :, :] # (batch_size, train_seq_len, n_features+1, emb_size)
 
             # aggregate the feature embeddings across samples and pad to fixed size
-            avg_pool_embeddings = self.embeddings["data"].mean(dim=1) #(batch_size, n_features+1, embedding_size)
+            avg_pool_embeddings = train_emb.mean(dim=1) #(batch_size, n_features+1, embedding_size)
             batch_size, n_features, emb_size = avg_pool_embeddings.shape
             n_features = n_features-1 #accountig for y in the 1st dim
+
+            logger.info("Embeddings averaged")
+            log_mem()
 
             if n_features > self.pad_size:
                 raise Warning(f"Number of features ({n_features}) exceeds fixed pad size ({self.pad_size})")
@@ -155,6 +169,11 @@ class TabPFNFeatureSelector(nn.Module):
             y_emb = y_emb.expand(-1, n_features, -1)  # (batch_size, n_features, emb_size)
             feature_y_embeddings = torch.cat([features_emb, y_emb], dim=-1)  # (batch_size, n_features, emb_size*2)
             
+            logger.info("Embeddings concatenated")
+            log_mem()
+
+            del avg_pool_embeddings, features_emb, y_emb
+
             padding = torch.zeros(
                 batch_size, self.pad_size - n_features, feature_y_embeddings.shape[-1],
                 device=feature_y_embeddings.device,
@@ -162,19 +181,29 @@ class TabPFNFeatureSelector(nn.Module):
             )
             padded_embeddings = torch.cat([feature_y_embeddings, padding], dim=1)  # (batch_size, pad_size, emb_size*2)
 
+            logger.info("Embeddings padded")
+            log_mem()
+
             self.mask = torch.zeros(batch_size, self.pad_size, dtype=torch.bool, device=feature_y_embeddings.device)
             self.mask[:, :n_features] = True  # (batch_size, pad_size)
-
+            
             # flat for batchnorm
             flat_embeddings = padded_embeddings.reshape(-1, feature_y_embeddings.shape[-1])  # (batch_size*pad_size, emb_size*2)
-                    
+            
+            del padding, feature_y_embeddings
+
         # run through decoder
+        logger.info("Before decoder pass")
+        log_mem()
+
         out = self.decoder(flat_embeddings) # (batch_size * self.pad_size, 1)
         out = out.reshape(batch_size, self.pad_size) # (batch_size, self.pad_size)
+        
+        logger.info("After decoder pass")
+        log_mem()
 
         result = out[self.mask].reshape(batch_size, n_features)
     
-        del avg_pool_embeddings, features_emb, y_emb, feature_y_embeddings
-        del padding, padded_embeddings, flat_embeddings, out
+        del flat_embeddings, out
         
         return result

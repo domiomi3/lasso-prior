@@ -17,3 +17,5 @@ inspect.ipynb
 wandb/
 checkpoints/
 test_decoder.py
+zz_thesis_figures/
+zzz_prior_analysis.ipynb

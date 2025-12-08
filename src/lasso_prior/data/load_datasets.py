@@ -84,7 +84,7 @@ class LassoPriorDataset(Dataset):
                 
                 # normalize log coefficients for better signal
                 epsilon = 1e-10
-                log_coeffs = -np.log(coeffs + epsilon)
+                log_coeffs = np.log(coeffs + epsilon)
                 log_min = log_coeffs.min()
                 log_max = log_coeffs.max()
                 
@@ -92,6 +92,8 @@ class LassoPriorDataset(Dataset):
                     log_norm = (log_coeffs - log_min) / (log_max - log_min)
                 else:
                     log_norm = np.zeros_like(coeffs)
+                #power transform for nicer distribution
+                log_norm = log_norm ** 4.0
                 
                 coeffs_list.append(log_norm)
             

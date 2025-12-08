@@ -61,6 +61,7 @@ def get_lasso_coefficients(X, y, config, verbose=True):
         logger.info(f"Warning: Some classes have fewer than 2 samples. Skipping this dataset.")
         return coeff_importance # zeros
     
+    #TODO: this is not used at all, remove
     #subsets contain all classes
     splitter = StratifiedShuffleSplit(
         n_splits=config.n_bootstrap,
